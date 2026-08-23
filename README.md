@@ -17,7 +17,8 @@
 | `index.html` | Вся страница: шапка, первый экран, цифры, квиз, преимущества, этапы, вопросы, подвал |
 | `styles.css` | Оформление и цветовая схема |
 | `script.js` | Логика квиза, подбор комплектации, отправка заявки |
-| `send.php` | Приём заявок: журнал, письмо, сообщение в MAX |
+| `send.php` | Приём заявок с формы: разбор и проверки |
+| `delivery.php` | Доставка заявки: журнал, письмо, сообщение в MAX |
 | `config.sample.php` | Образец настроек почты и мессенджера |
 | `max-chat-id.php` | Помощник: показывает chat_id бота MAX |
 | `setup-config.php` | Помощник: записывает `config.php`, задавая вопросы |
@@ -178,7 +179,7 @@ SOURCE_LABEL: "Квиз форма",
 Делается один раз. На сервере, от root:
 
 ```
-git clone https://github.com/sabutorin97-boop/https-4b5cf867-0cfc-4f31-be94-615f7580da8c-00-z5jwepwsh688.worf.replit.dev-.git /tmp/okna
+git clone https://github.com/sabutorin97-boop/https-okna-profigrupp-lending.git /tmp/okna
 bash /tmp/okna/deploy/setup-server.sh
 ```
 
