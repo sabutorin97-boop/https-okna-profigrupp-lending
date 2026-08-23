@@ -83,7 +83,7 @@ return [
      * письма и MAX.
      *
      * url — адрес приёмника заявок в CRM, вида
-     *       https://<домен-crm>/api/leads-intake
+     *       https://<домен-crm>/api/leads
      * secret — тот же секрет, что записан в CRM как переменная окружения
      *          LEADS_INTAKE_SECRET (Lovable Cloud → Secrets). Без совпадения
      *          CRM отвечает 401 и заявка в неё просто не попадёт — на письмо
