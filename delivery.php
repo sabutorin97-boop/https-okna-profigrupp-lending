@@ -65,6 +65,7 @@ function lead_config(string $dir): array
         'smtp'         => ['enabled' => false],
         'max'          => ['enabled' => false],
         'avito'        => ['enabled' => false],
+        'crm'          => ['enabled' => false],
     ];
 
     /* Читаем осторожно: если файл есть, но недоступен, обычный require
@@ -262,18 +263,68 @@ function max_send_one(array $m, string $token, string $chat, string $body): bool
     return false;
 }
 
+/* ------------------------------------------------------------- CRM */
+
+/**
+ * Кладёт заявку в CRM отдельным HTTP-запросом — там своя база данных,
+ * не файлы на этом сервере. CRM сама заводит лид на служебного менеджера
+ * «Не назначено», если реального ещё не подобрала.
+ *
+ * Секрет — общий с CRM (её переменная окружения LEADS_INTAKE_SECRET),
+ * не токен пользователя: сайт и бот сюда стучатся не как залогиненный
+ * менеджер, а как доверенный источник.
+ */
+function crm_send(array $c, string $name, string $phone, string $text): bool
+{
+    $url = (string)($c['url'] ?? '');
+    $secret = (string)($c['secret'] ?? '');
+    if ($url === '' || $secret === '') {
+        error_log('Заявка: для CRM не задан url или secret');
+        return false;
+    }
+
+    $payload = json_encode([
+        'name'   => $name,
+        'phone'  => $phone,
+        'text'   => $text,
+        'source' => (string)($c['source_key'] ?? 'website'),
+    ], JSON_UNESCAPED_UNICODE);
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $payload,
+        CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'x-intake-secret: ' . $secret],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 15,
+    ]);
+
+    $answer = curl_exec($ch);
+    $code   = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err    = curl_error($ch);
+    curl_close($ch);
+
+    if ($code >= 200 && $code < 300) {
+        return true;
+    }
+
+    error_log('Заявка: CRM ответила ' . $code . ' ' . $err . ' ' . substr((string)$answer, 0, 300));
+    return false;
+}
+
 /* ------------------------------------------------------------ доставка */
 
 /**
- * Доставляет готовый текст заявки всеми доступными путями.
+ * Доставляет заявку всеми доступными путями: журнал, письмо, MAX, CRM.
  *
- * $subject — тема письма без кодирования, например «Авито: Пётр, +7 912…».
- * Возвращает, что удалось: ['saved' => bool, 'mailed' => bool, 'maxed' => bool].
+ * $sourceLabel — как подписать источник человеку, например «Авито»
+ * или «Квиз форма» — идёт в тему письма и в сообщение MAX.
+ * Возвращает, что удалось: ['saved'=>bool,'mailed'=>bool,'maxed'=>bool,'crm'=>bool].
  * Вызывающий сам решает, что считать успехом.
  */
-function deliver_lead(array $config, string $text, string $subject): array
+function deliver_lead(array $config, string $name, string $phone, string $text, string $sourceLabel): array
 {
-    $result = ['saved' => false, 'mailed' => false, 'maxed' => false];
+    $result = ['saved' => false, 'mailed' => false, 'maxed' => false, 'crm' => false];
 
     /* Журнал заявок — первым делом. Это единственный путь, который
        не зависит ни от сети, ни от чужих серверов. */
@@ -289,6 +340,7 @@ function deliver_lead(array $config, string $text, string $subject): array
 
     // Письмо
     $smtp = is_array($config['smtp'] ?? null) ? $config['smtp'] : [];
+    $subject = $sourceLabel . ': ' . $name . ', ' . $phone;
     $encoded = '=?UTF-8?B?' . base64_encode($subject) . '?=';
 
     if (!empty($smtp['enabled'])) {
@@ -307,6 +359,12 @@ function deliver_lead(array $config, string $text, string $subject): array
     $max = is_array($config['max'] ?? null) ? $config['max'] : [];
     if (!empty($max['enabled']) && function_exists('curl_init')) {
         $result['maxed'] = max_send($max, $text);
+    }
+
+    // CRM
+    $crm = is_array($config['crm'] ?? null) ? $config['crm'] : [];
+    if (!empty($crm['enabled']) && function_exists('curl_init')) {
+        $result['crm'] = crm_send($crm, $name, $phone, $text);
     }
 
     return $result;

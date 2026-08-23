@@ -77,4 +77,24 @@ return [
         'auth'            => 'header',
         'recipient_field' => 'chat_id',  // 'chat_id' или 'user_id'
     ],
+
+    /**
+     * Заявка ещё и в CRM (crm-okna) — отдельным запросом, помимо журнала,
+     * письма и MAX.
+     *
+     * url — адрес приёмника заявок в CRM, вида
+     *       https://<домен-crm>/api/leads-intake
+     * secret — тот же секрет, что записан в CRM как переменная окружения
+     *          LEADS_INTAKE_SECRET (Lovable Cloud → Secrets). Без совпадения
+     *          CRM отвечает 401 и заявка в неё просто не попадёт — на письмо
+     *          и MAX это не влияет.
+     * source_key — как заявка подпишется в CRM, справочник каналов там же:
+     *              для этого сайта — 'landing_windows'.
+     */
+    'crm' => [
+        'enabled'    => false,
+        'url'        => 'https://сюда-домен-crm/api/leads-intake',
+        'secret'     => 'сюда-секрет-из-crm',
+        'source_key' => 'landing_windows',
+    ],
 ];
