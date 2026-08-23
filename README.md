@@ -179,7 +179,7 @@ SOURCE_LABEL: "Квиз форма",
 Делается один раз. На сервере, от root:
 
 ```
-git clone https://github.com/sabutorin97-boop/https-okna-profigrupp-lending.git /tmp/okna
+git clone https://github.com/sabutorin97-boop/okna-profigrupp-landing.git /tmp/okna
 bash /tmp/okna/deploy/setup-server.sh
 ```
 
