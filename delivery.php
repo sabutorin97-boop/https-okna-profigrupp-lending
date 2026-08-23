@@ -270,9 +270,10 @@ function max_send_one(array $m, string $token, string $chat, string $body): bool
  * не файлы на этом сервере. CRM сама заводит лид на служебного менеджера
  * «Не назначено», если реального ещё не подобрала.
  *
- * Секрет — общий с CRM (её переменная окружения LEADS_INTAKE_SECRET),
- * не токен пользователя: сайт и бот сюда стучатся не как залогиненный
- * менеджер, а как доверенный источник.
+ * Подпись, а не голый секрет в заголовке: тот же формат, что уже использует
+ * вебхук основного сайта (warm-website-workshop) для того же приёмника —
+ * HMAC-SHA256 от тела запроса, hex, в заголовке x-webhook-signature. Секрет
+ * общий с CRM (её переменная окружения LEADS_INTAKE_SECRET).
  */
 function crm_send(array $c, string $name, string $phone, string $text): bool
 {
@@ -289,12 +290,13 @@ function crm_send(array $c, string $name, string $phone, string $text): bool
         'text'   => $text,
         'source' => (string)($c['source_key'] ?? 'website'),
     ], JSON_UNESCAPED_UNICODE);
+    $signature = hash_hmac('sha256', $payload, $secret);
 
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_POST           => true,
         CURLOPT_POSTFIELDS     => $payload,
-        CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'x-intake-secret: ' . $secret],
+        CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'x-webhook-signature: ' . $signature],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT        => 15,
     ]);
