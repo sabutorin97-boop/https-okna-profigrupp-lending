@@ -40,20 +40,99 @@
   };
 
   /* ======================================================================
-     ВОПРОСЫ КВИЗА
+     ПОДАРКИ ЗА ЗАКАЗ
+
+     Обещание должно жить в одном месте: оно показывается на первом экране,
+     повторяется перед формой и уходит менеджеру в заявку. Если развести
+     эти три текста по файлу, рано или поздно они разойдутся.
      ====================================================================== */
 
-  var STEPS = [
+  var GIFTS = {
+    windows: "Москитная сетка в подарок при заказе с монтажом",
+    balcony: "Жалюзи в подарок при заказе с монтажом"
+  };
+
+  /* ======================================================================
+     ВОПРОСЫ КВИЗА
+
+     Первый вопрос общий: он же развилка. Ответ «балкон» уводит в свою
+     ветку, остальные — в оконную. Человек не должен видеть чужие вопросы:
+     лишние экраны — главная причина, по которой квизы бросают на середине.
+     ====================================================================== */
+
+  /* Общий первый вопрос */
+  var STEP_OBJECT = {
+    id: "object",
+    question: "Что будем остеклять?",
+    options: [
+      { value: "flat", label: "Квартира", icon: "i-window" },
+      { value: "house", label: "Частный дом или дача", icon: "i-home" },
+      { value: "balcony", label: "Балкон или лоджия", icon: "i-layers" },
+      { value: "office", label: "Офис, магазин, помещение", icon: "i-award" }
+    ]
+  };
+
+  /* --------------------------- Ветка «Балкон» ---------------------------
+     Вопросы про отделку и тип остекления показываются не всем: тому, кто
+     пришёл только за остеклением, нечего спрашивать про вагонку, а тому,
+     у кого балкон уже застеклён, — про холодное и тёплое. */
+  var STEPS_BALCONY = [
     {
-      id: "object",
-      question: "Что будем остеклять?",
+      id: "b_interest",
+      question: "Что вас интересует?",
       options: [
-        { value: "flat", label: "Квартира", icon: "i-window" },
-        { value: "house", label: "Частный дом или дача", icon: "i-home" },
-        { value: "balcony", label: "Балкон или лоджия", icon: "i-layers" },
-        { value: "office", label: "Офис, магазин, помещение", icon: "i-award" }
+        { value: "glazing", label: "Только остекление балкона", icon: "i-window" },
+        { value: "turnkey", label: "Остекление и отделка под ключ", icon: "i-home" },
+        { value: "finish", label: "Только отделка — балкон уже застеклён", icon: "i-layers" },
+        { value: "replace", label: "Замена старого остекления", icon: "i-wrench" }
       ]
     },
+    {
+      id: "b_glazing",
+      question: "Какое остекление нужно?",
+      // Тому, кто пришёл за отделкой уже застеклённого балкона, вопрос не задаём
+      show: function (a) { return a.b_interest !== "finish"; },
+      options: [
+        { value: "cold", label: "Холодное — алюминий, дешевле", icon: "i-shield" },
+        { value: "warm", label: "Тёплое — ПВХ, сохраняет тепло", icon: "i-thermometer" },
+        { value: "unknown", label: "Пока не знаю, помогите выбрать", icon: "i-sparkles" }
+      ]
+    },
+    {
+      id: "b_size",
+      question: "Какой размер балкона?",
+      options: [
+        { value: "3", label: "До 3 метров" },
+        { value: "3-6", label: "3–6 метров" },
+        { value: "6+", label: "Больше 6 метров — лоджия" },
+        { value: "unknown", label: "Не знаю точно, измерим на замере" }
+      ]
+    },
+    {
+      id: "b_finish",
+      question: "Чем обшить внутри?",
+      // Спрашиваем только тех, кому отделка вообще нужна
+      show: function (a) { return a.b_interest === "turnkey" || a.b_interest === "finish"; },
+      options: [
+        { value: "wood", label: "Деревянная вагонка" },
+        { value: "pvc", label: "ПВХ-панели" },
+        { value: "mdf", label: "МДФ" },
+        { value: "unknown", label: "Помогите выбрать" }
+      ]
+    },
+    {
+      id: "b_when",
+      question: "Когда планируете сделать?",
+      options: [
+        { value: "now", label: "Срочно, в этом месяце" },
+        { value: "quarter", label: "В течение 1–3 месяцев" },
+        { value: "later", label: "Просто узнаю цену" }
+      ]
+    }
+  ];
+
+  /* --------------------------- Ветка «Окна» --------------------------- */
+  var STEPS_WINDOWS = [
     {
       id: "count",
       question: "Сколько окон нужно поменять?",
@@ -108,12 +187,180 @@
     }
   ];
 
+  /** Балконная ветка или оконная — решается первым ответом. */
+  function branchOf(answers) {
+    return answers.object === "balcony" ? "balcony" : "windows";
+  }
+
+  /**
+   * Шаги, актуальные для текущих ответов.
+   *
+   * Пока на первый вопрос не ответили, ветка неизвестна — показываем
+   * только его. Дальше подмешиваются вопросы выбранной ветки, а те,
+   * что не подходят по ответам, отсеиваются функцией show.
+   */
+  function stepsFor(answers) {
+    var steps = [STEP_OBJECT];
+    if (!answers.object) return steps;
+
+    var branch = branchOf(answers) === "balcony" ? STEPS_BALCONY : STEPS_WINDOWS;
+
+    branch.forEach(function (step) {
+      if (typeof step.show === "function" && !step.show(answers)) return;
+      steps.push(step);
+    });
+
+    return steps;
+  }
+
+  /**
+   * Метка заявки. К общей метке из настроек добавляется ветка, чтобы
+   * в мессенджере было видно, о чём разговор, ещё до чтения текста.
+   */
+  function sourceLabel(answers) {
+    return SETTINGS.SOURCE_LABEL + (branchOf(answers) === "balcony" ? ", балкон" : ", окна");
+  }
+
+  /** Что обещано человеку за заказ — зависит от ветки. */
+  function giftFor(answers) {
+    return branchOf(answers) === "balcony" ? GIFTS.balcony : GIFTS.windows;
+  }
+
   /* ======================================================================
      ПОДБОР КОМПЛЕКТАЦИИ
      Чистая функция: по ответам возвращает описание решения.
      ====================================================================== */
 
+  /** Развилка: у балкона своя логика подбора, у окон своя. */
   function pickSolution(a) {
+    return branchOf(a) === "balcony" ? pickBalcony(a) : pickWindows(a);
+  }
+
+  /* Строки без значения выбрасываем: пустой пункт «Дополнительно»
+     выглядит недоделкой, а появляется он легко — когда для этой
+     ситуации просто нечего добавить. */
+  function usefulSpecs(specs) {
+    return specs.filter(function (spec) { return spec.value; });
+  }
+
+  /* ------------------------------- Балкон -------------------------------
+     Здесь подбирается не профиль со стеклопакетом, а состав работ: тип
+     остекления, чем обшить, нужно ли утепление. Цену по-прежнему называем
+     только после замера — она зависит от размеров и состояния плиты. */
+  function pickBalcony(a) {
+    var why = [];
+    var interest = a.b_interest;
+    var wantsFinish = interest === "turnkey" || interest === "finish";
+    var onlyFinish = interest === "finish";
+    var big = a.b_size === "6+";
+
+    /* --- Остекление --- */
+    var glazing, glazingNote;
+
+    if (onlyFinish) {
+      glazing = "Остекление менять не нужно";
+      glazingNote = "Балкон уже застеклён — работаем только внутри. На замере посмотрим, держит ли существующая конструкция тепло: от этого зависит, есть ли смысл в утеплении.";
+    } else if (a.b_glazing === "warm") {
+      glazing = "Тёплое остекление, профиль ПВХ";
+      glazingNote = "Балкон становится продолжением комнаты: зимой там плюсовая температура, можно поставить стол или сушилку и не мёрзнуть.";
+      why.push("вы выбрали тёплое остекление — только оно позволяет пользоваться балконом круглый год");
+    } else if (a.b_glazing === "cold") {
+      glazing = "Холодное остекление, алюминиевый профиль";
+      glazingNote = "Лёгкая конструкция: защищает от ветра, дождя и пыли, летом на балконе комфортно. Зимой температура близка к уличной, зато нагрузка на плиту минимальная и цена ниже.";
+      why.push("холодное остекление легче и дешевле — для сушки белья и хранения его достаточно");
+    } else {
+      glazing = "Определимся на замере: холодное или тёплое";
+      glazingNote = "Разница простая. Холодное — алюминий, дешевле и легче, защищает от ветра и пыли, но зимой там как на улице. Тёплое — ПВХ, дороже и тяжелее, зато балконом можно пользоваться круглый год. Замерщик посмотрит плиту и подскажет, что уместно.";
+      why.push("вы попросили помочь с выбором — на замере покажем оба варианта прямо по вашему балкону");
+    }
+
+    /* --- Отделка --- */
+    var finishNames = {
+      wood: "Деревянная вагонка",
+      pvc: "ПВХ-панели",
+      mdf: "МДФ"
+    };
+    var finish, finishNote;
+
+    if (!wantsFinish) {
+      finish = "Только остекление, без внутренних работ";
+      finishNote = "Если позже захотите обшить балкон — сделаем отдельно, той же бригадой.";
+    } else if (a.b_finish === "wood") {
+      finish = "Обшивка стен и потолка деревянной вагонкой";
+      finishNote = "Выглядит дороже остальных вариантов и приятно пахнет деревом. Раз в несколько лет требует обновления покрытия.";
+    } else if (a.b_finish === "pvc") {
+      finish = "Обшивка стен и потолка ПВХ-панелями";
+      finishNote = "Самый практичный вариант: не боится влаги, моется тряпкой, служит долго и стоит дешевле дерева.";
+    } else if (a.b_finish === "mdf") {
+      finish = "Обшивка стен и потолка панелями МДФ";
+      finishNote = "Середина между вагонкой и пластиком: выглядит как дерево, стоит дешевле. Влаги не любит, поэтому уместна на тёплом балконе.";
+    } else {
+      finish = "Материал обшивки подберём на замере";
+      finishNote = "Коротко: ПВХ-панели — практично и недорого, вагонка — красиво и дороже, МДФ — посередине, но только для тёплого балкона. Покажем образцы на месте.";
+    }
+
+    if (wantsFinish && a.b_glazing === "cold") {
+      finishNote += " Для холодного балкона берём материалы, которым не вредят перепады температуры.";
+      why.push("на холодном балконе зимой минус — поэтому дерево и МДФ там ведут себя хуже пластика");
+    }
+
+    /* --- Что входит в работу ---
+       Список из условий компании: одна бригада делает всё от начала
+       до конца, отдельно искать отделочников не нужно. */
+    var works = ["Замер и расчёт"];
+
+    if (!onlyFinish) {
+      works.push("Демонтаж старого остекления");
+      works.push("Монтаж нового остекления");
+    }
+    if (wantsFinish) {
+      works.push("Обшивка стен и потолка");
+      works.push("Подоконники и откосы");
+      works.push("Порог внутри, отлив снаружи");
+    }
+    if (wantsFinish && a.b_glazing === "warm") {
+      works.push("Утепление стен и пола");
+      why.push("тёплое остекление без утепления стен и пола работает вполсилы — холод придёт снизу");
+    }
+    works.push("Вывоз строительного мусора");
+
+    /* --- Дополнительно --- */
+    var extras = [];
+
+    if (big) {
+      extras.push("Усиленный каркас — на лоджии от 6 метров он обязателен");
+      why.push("длина от шести метров: конструкции такой ширины нужен усиленный каркас");
+    }
+    if (a.b_when === "now") {
+      extras.push("Ставим в ближайшую свободную дату бригады");
+    }
+
+    var titles = {
+      glazing: "Остеклим балкон",
+      turnkey: "Сделаем балкон под ключ",
+      finish: "Приведём балкон в порядок внутри",
+      replace: "Заменим старое остекление"
+    };
+
+    if (!why.length) {
+      why.push("состав работ подобран под вашу задачу — лишнего не предлагаем, точную смету посчитаем после замера");
+    }
+
+    return {
+      title: titles[interest] || "Мы подобрали решение",
+      subtitle: "Вот что входит в работу",
+      specs: usefulSpecs([
+        { icon: "i-window", label: "Остекление", value: glazing, note: glazingNote },
+        { icon: "i-layers", label: "Отделка", value: finish, note: finishNote },
+        { icon: "i-check", label: "Что входит в работу", value: "Полный цикл, одной бригадой", note: works.join(" · ") + ". Отдельно искать отделочников и заказывать вывоз мусора не нужно." },
+        { icon: "i-sparkles", label: "Дополнительно", value: extras.join(" · "), note: "" }
+      ]),
+      why: why
+    };
+  }
+
+  /* -------------------------------- Окна -------------------------------- */
+  function pickWindows(a) {
     var goals = a.goals || [];
     var has = function (g) { return goals.indexOf(g) !== -1; };
 
@@ -215,8 +462,10 @@
       hardwareNote += " Ставим зимне-летний режим прижима, чтобы регулировать плотность по сезону.";
     }
 
-    /* --- Дополнительно --- */
-    var extras = ["Москитная сетка на открывающиеся створки"];
+    /* --- Дополнительно ---
+       Подарка здесь нет намеренно: он показывается отдельной строкой
+       перед формой и уходит в заявку. Дважды на одном экране — шум. */
+    var extras = [];
 
     if (has("condensate")) {
       extras.push("Тёплые откосы из сэндвич-панели вместо штукатурки");
@@ -252,12 +501,12 @@
     return {
       title: main ? titles[main] : "Мы подобрали комплектацию",
       subtitle: "Вот что решит её лучше всего",
-      specs: [
+      specs: usefulSpecs([
         { icon: "i-layers", label: "Профиль", value: profile, note: profileNote },
         { icon: "i-window", label: "Стеклопакет", value: glass, note: glassNote },
         { icon: "i-lock", label: "Фурнитура", value: hardware, note: hardwareNote },
         { icon: "i-sparkles", label: "Дополнительно", value: extras.join(" · "), note: "" }
-      ],
+      ]),
       why: why
     };
   }
@@ -269,10 +518,15 @@
   var STORAGE_KEY = "profigrupp-quiz";
 
   var state = {
-    step: 0,          // 0..STEPS.length-1 — вопросы, STEPS.length — результат
+    step: 0,          // 0..N-1 — вопросы текущей ветки, N — результат
     answers: {},
     sent: false
   };
+
+  /** Вопросы, актуальные для уже данных ответов. */
+  function steps() {
+    return stepsFor(state.answers);
+  }
 
   function saveState() {
     try {
@@ -289,7 +543,9 @@
       var saved = JSON.parse(raw);
       if (saved && typeof saved.step === "number" && saved.answers) {
         state.answers = saved.answers;
-        state.step = Math.min(saved.step, STEPS.length);
+        // Длину ветки считаем уже по восстановленным ответам:
+        // у балкона и окон разное число вопросов
+        state.step = Math.min(saved.step, stepsFor(state.answers).length);
       }
     } catch (e) {
       /* повреждённые данные — начинаем с чистого листа */
@@ -322,8 +578,10 @@
     return svg;
   }
 
-  function labelOf(stepIndex, value) {
-    var step = STEPS[stepIndex];
+  /* Ищем подпись по самому шагу, а не по его номеру: с ветвлением номера
+     разъезжаются, а вопрос со своими вариантами всегда при себе. */
+  function labelOf(step, value) {
+    if (!step) return value;
     for (var i = 0; i < step.options.length; i++) {
       if (step.options[i].value === value) return step.options[i].label;
     }
@@ -363,16 +621,31 @@
   var percentEl = document.getElementById("quiz-percent");
   var barEl = document.getElementById("quiz-bar");
 
+  /**
+   * Сколько вопросов в ветке максимум.
+   *
+   * Именно максимум, а не текущая длина: часть вопросов условные, и если
+   * брать фактический список, знаменатель на глазах у человека растёт
+   * («из 5» превращается в «из 6»). Расти он не должен — это читается
+   * как обман. Пропущенный вопрос просто сократит путь.
+   */
+  function branchTotal() {
+    if (!state.answers.object) return 1 + STEPS_WINDOWS.length;
+    var branch = branchOf(state.answers) === "balcony" ? STEPS_BALCONY : STEPS_WINDOWS;
+    return 1 + branch.length;
+  }
+
   function updateProgress() {
-    var total = STEPS.length + 1; // вопросы + экран контактов
+    var list = steps();
+    var total = list.length + 1; // вопросы + экран контактов
     var current = Math.min(state.step + 1, total);
     var pct = Math.round((state.step / total) * 100);
 
-    if (state.step >= STEPS.length) {
+    if (state.step >= list.length) {
       counterEl.textContent = "Последний шаг — контакты";
       pct = 90;
     } else {
-      counterEl.textContent = "Вопрос " + current + " из " + STEPS.length;
+      counterEl.textContent = "Вопрос " + current + " из " + branchTotal();
     }
 
     percentEl.textContent = pct + "%";
@@ -393,8 +666,9 @@
     progressWrap.style.display = "";
     updateProgress();
 
-    if (state.step < STEPS.length) {
-      renderQuestion(STEPS[state.step]);
+    var list = steps();
+    if (state.step < list.length) {
+      renderQuestion(list[state.step]);
     } else {
       renderResult();
     }
@@ -480,7 +754,7 @@
   }
 
   function goNext() {
-    if (state.step < STEPS.length) {
+    if (state.step < steps().length) {
       state.step += 1;
       saveState();
       render();
@@ -534,12 +808,12 @@
     body.appendChild(why);
 
     var recap = el("div", "answers-recap");
-    STEPS.forEach(function (step, index) {
+    steps().forEach(function (step) {
       var value = state.answers[step.id];
       if (!value) return;
       var values = Array.isArray(value) ? value : [value];
       values.forEach(function (v) {
-        recap.appendChild(el("span", "chip", labelOf(index, v)));
+        recap.appendChild(el("span", "chip", labelOf(step, v)));
       });
     });
     body.appendChild(recap);
@@ -551,6 +825,14 @@
   function buildForm(solution) {
     var form = el("form", "lead-form");
     form.noValidate = true;
+
+    /* Подарок повторяем прямо перед полями: человек прошёл несколько экранов
+       и мог забыть, ради чего начинал. Это последний шаг, где обещание
+       ещё способно повлиять на решение оставить телефон. */
+    var gift = el("p", "quiz-gift");
+    gift.appendChild(icon("i-sparkles", "quiz-gift-icon"));
+    gift.appendChild(el("span", null, giftFor(state.answers)));
+    form.appendChild(gift);
 
     form.appendChild(el("p", "quiz-hint",
       "Оставьте контакты — инженер приедет на замер и уточнит комплектацию на месте. " +
@@ -787,7 +1069,9 @@
 
     var again = el("button", "btn btn-ghost");
     again.type = "button";
-    again.textContent = "Подобрать окна ещё раз";
+    again.textContent = branchOf(state.answers) === "balcony"
+      ? "Рассчитать балкон ещё раз"
+      : "Подобрать окна ещё раз";
     again.addEventListener("click", function () {
       resetState();
       render();
@@ -804,7 +1088,7 @@
 
   function buildLeadText(lead) {
     var lines = [];
-    lines.push(SETTINGS.SOURCE_LABEL + " — заявка на замер");
+    lines.push(sourceLabel(lead.answers) + " — заявка на замер");
     lines.push("");
     lines.push("Имя: " + lead.name);
     lines.push("Телефон: " + lead.phone);
@@ -812,11 +1096,11 @@
     lines.push("");
     lines.push("Ответы:");
 
-    STEPS.forEach(function (step, index) {
+    stepsFor(lead.answers).forEach(function (step) {
       var value = lead.answers[step.id];
       if (!value) return;
       var values = Array.isArray(value) ? value : [value];
-      var labels = values.map(function (v) { return labelOf(index, v); });
+      var labels = values.map(function (v) { return labelOf(step, v); });
       lines.push("• " + step.question + " — " + labels.join(", "));
     });
 
@@ -825,6 +1109,11 @@
     lead.solution.specs.forEach(function (spec) {
       lines.push("• " + spec.label + ": " + spec.value);
     });
+
+    /* Обещанный подарок выносим отдельной строкой: менеджер должен увидеть
+       его сразу, а не выискивать в перечне комплектации. */
+    lines.push("");
+    lines.push("Обещан подарок: " + giftFor(lead.answers));
 
     var source = collectSource();
     if (source) {
@@ -857,7 +1146,7 @@
       way: lead.way,
       answers: lead.answers,
       solution: lead.solution.specs.map(function (s) { return s.label + ": " + s.value; }),
-      source_label: SETTINGS.SOURCE_LABEL,
+      source_label: sourceLabel(lead.answers),
       source: collectSource(),
       page: window.location.href,
       text: text

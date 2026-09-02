@@ -941,6 +941,31 @@ p {
   color: var(--muted-foreground);
 }
 
+/* Строка с подарком перед формой. Выделена рамкой и подсветкой: это
+   обещание, а не пояснение, и потеряться среди серого текста оно
+   не должно. Цвет — успех, тот же, что у галочек «заявка принята». */
+.quiz-gift {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid oklch(0.75 0.18 155 / 0.35);
+  border-radius: 0.875rem;
+  background: oklch(0.75 0.18 155 / 0.1);
+  color: var(--foreground);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.quiz-gift-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+  color: var(--success);
+}
+
 .quiz-options {
   margin-top: 1.5rem;
   display: grid;
