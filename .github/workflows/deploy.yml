@@ -35,6 +35,19 @@ jobs:
           for f in robots.txt sitemap.xml; do
             [ -f "$f" ] && cp "$f" dist/
           done
+          # Стили и скрипт кэшируются браузером на неделю — так настроен nginx,
+          # и это правильно для скорости. Но без метки версии вернувшийся
+          # посетитель ещё семь дней видел бы старую страницу: правки просто
+          # не доходили. Поэтому дописываем к ссылкам короткий отпечаток
+          # содержимого — меняется файл, меняется ссылка, браузер берёт свежее.
+          css_hash="$(md5sum styles.css | cut -c1-8)"
+          js_hash="$(md5sum script.js | cut -c1-8)"
+          for f in dist/index.html dist/privacy.html dist/404.html; do
+            [ -f "$f" ] || continue
+            sed -i "s|\(href=\"styles\.css\)\"|\1?v=$css_hash\"|g; s|\(src=\"script\.js\)\"|\1?v=$js_hash\"|g" "$f"
+          done
+          echo "Версии файлов: styles.css?v=$css_hash, script.js?v=$js_hash"
+
           # config.php с паролем живёт только на сервере и никогда не перезаписывается:
           # rsync запускается без --delete, поэтому файл на сервере останется нетронутым
           echo "На сервер уйдут файлы:"
