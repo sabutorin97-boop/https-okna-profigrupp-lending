@@ -310,6 +310,58 @@ p {
   font-weight: 500;
 }
 
+/* Обещание подарка под заголовком квиза. Крупнее подзаголовка и
+   подсвечено: это причина начать отвечать на вопросы, и потеряться
+   в обычном тексте она не должна. */
+.section-head .gift-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin: 1.25rem auto 0;
+  padding: 0.75rem 1.5rem;
+  border-radius: 999px;
+  border: 1px solid oklch(0.75 0.18 155 / 0.45);
+  background: oklch(0.75 0.18 155 / 0.14);
+  color: oklch(0.9 0.13 155);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.gift-banner-icon {
+  width: 1.375rem;
+  height: 1.375rem;
+  flex: none;
+}
+
+.gift-banner sup {
+  font-size: 0.7em;
+  margin-left: 0.1em;
+}
+
+/* Условие акции — мелко и приглушённо: обещание не должно спорить
+   с оговоркой в одной строке, но и умалчивать о ней нельзя. */
+.section-head .gift-note {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+
+@media (max-width: 480px) {
+  .section-head .gift-banner {
+    font-size: 1rem;
+    padding: 0.75rem 1rem;
+    /* На узком экране строка переносится, и «пилюля» превращается
+       в неопрятный овал — поэтому обычные скруглённые углы */
+    border-radius: 1rem;
+    /* Иконку и текст держим группой по центру: иначе иконка прижимается
+       к левому краю растянутой плашки и висит отдельно от надписи */
+    justify-content: center;
+    text-align: center;
+  }
+}
+
 .chip-live {
   color: var(--foreground);
 }
